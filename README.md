@@ -1,2 +1,2 @@
 # AndroidVulkanDemo
-3D rendered writen Vulkan/C++ embeded inside android application
+3D graphics renderer writen Vulkan/C++ embeded inside android application
