@@ -65,9 +65,9 @@ fun MainView(
         verticalArrangement = Arrangement.SpaceEvenly
     )
     {
-        VkSurfaceContainer { surface ->
-
-        }
+        //VkSurfaceContainer { surface ->
+//
+        //}
 
         Greeting(text)
     }
