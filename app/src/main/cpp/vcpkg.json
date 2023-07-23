@@ -1,0 +1,15 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "android-vulkan-demo",
+    "version": "0.0.1",
+    "dependencies": [
+      "glfw3",
+      {
+        "name": "imgui",
+        "features": [
+            "glfw-binding",
+            "vulkan-binding"
+        ]
+      }
+    ]
+  }

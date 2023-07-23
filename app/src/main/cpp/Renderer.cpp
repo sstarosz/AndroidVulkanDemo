@@ -1,10 +1,26 @@
-#include <jni.h>
-#include <android/log.h>
+#include "Renderer.hpp"
+
+#ifdef __ANDROID__
+    #include <jni.h>
+    #include <android/log.h>
+    #define VK_USE_PLATFORM_ANDROID_KHR 0
+#else
+
+#endif
+
+
 #include <string>
 #include <sstream>
+#include <iostream>
 
-#define VK_USE_PLATFORM_ANDROID_KHR 0
-#include <vulkan/vulkan.hpp>
+void printLog(const std::string& message)
+{
+    #ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_DEBUG, "Vulkan Renderer", "Debug message: %s", message.c_str());
+    #else
+        std::cout << "Debug message: " << message << std::endl;
+    #endif
+}
 
 
 #ifdef NDEBUG
@@ -90,7 +106,8 @@ VKAPI_ATTR  VkBool32  VKAPI_CALL  debugCallback(VkDebugUtilsMessageSeverityFlagB
         }
     }
 
-    __android_log_print(ANDROID_LOG_DEBUG, "Vulkan Renderer", "Debug message: %s", message.str().c_str());
+    
+    printLog(message.str());
 
     return false;
 }
@@ -137,10 +154,17 @@ std::vector<const char*> getValidationLayers()
 
 std::vector<const char*> getEnabledExtensions()
 {
+
     std::vector<const char*> extensions;
 
     extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-    extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+
+    #ifdef __ANDROID__
+        extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+    #else
+        //TODO GLFW RequiredExtensions
+    #endif
+    
 
     if (enableValidationLayers)
     {
@@ -151,41 +175,29 @@ std::vector<const char*> getEnabledExtensions()
     return extensions;
 }
 
-class VulkanRenderer
+void VulkanRenderer::initWindow()
 {
-
-public:
-    void run()
-    {
-        initWindow();
-        initVulkan();
-        mainLoop();
-        cleanup();
-    }
-
-private:
-    void initWindow();
-    void initVulkan();
-    void mainLoop();
-    void cleanup();
-
-
-    void createInstance();
-    void createDebugMessenger();
-    void createSurface();
-
-    vk::Instance mInstance;
-    vk::DebugUtilsMessengerEXT mDebugMessenger;
-};
+}
 
 void VulkanRenderer::initVulkan()
 {
     createInstance();
 }
 
+void VulkanRenderer::mainLoop()
+{
+
+}
+
+void VulkanRenderer::cleanup()
+{
+
+}
+
+
 void VulkanRenderer::createInstance()
 {
-    vk::ApplicationInfo appInfo { "Cloth Simulation App",
+    vk::ApplicationInfo appInfo { "Android Vulkan Demo",
                                   1,
                                   "No Engine",
                                   1,
@@ -208,8 +220,7 @@ void VulkanRenderer::createDebugMessenger()
     pfnVkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(mInstance.getProcAddr("vkCreateDebugUtilsMessengerEXT"));
     if (!pfnVkCreateDebugUtilsMessengerEXT)
     {
-        //TODO - Change it to something independent of iostream
-        __android_log_print(ANDROID_LOG_DEBUG, "Vulkan Renderer", "GetInstanceProcAddr: Unable to find pfnVkCreateDebugUtilsMessengerEXT function.");
+        printLog("GetInstanceProcAddr: Unable to find pfnVkCreateDebugUtilsMessengerEXT function.");
         exit(1);
     }
 
@@ -217,7 +228,7 @@ void VulkanRenderer::createDebugMessenger()
     if (!pfnVkDestroyDebugUtilsMessengerEXT)
     {
         //TODO - Change it to something independent of iostream
-        __android_log_print(ANDROID_LOG_DEBUG, "Vulkan Renderer", "GetInstanceProcAddr: Unable to find pfnVkDestroyDebugUtilsMessengerEXT function.");
+        printLog("GetInstanceProcAddr: Unable to find pfnVkDestroyDebugUtilsMessengerEXT function."); 
         exit(1);
     }
 
@@ -242,26 +253,4 @@ void VulkanRenderer::createSurface()
 }
 
 
-extern "C"
-{
 
-
-    JNIEXPORT jstring JNICALL
-    Java_com_st_androidvulkandemo_MainActivity_stringFromJNI(JNIEnv *env,   jobject /* this */)
-    {
-        std::string hello = "Hello from C++";
-        return env->NewStringUTF(hello.c_str());
-    }
-
-
-    JNIEXPORT jstring JNICALL
-    Java_com_st_androidvulkandemo_MainActivity_InitVulkanRenderer(JNIEnv *env,   jobject /* this */)
-    {
-        std::string hello = "Hello from C++";
-        return env->NewStringUTF(hello.c_str());
-    }
-
-
-
-
-}

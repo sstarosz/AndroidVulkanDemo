@@ -1,0 +1,36 @@
+{
+    "version": 5,
+    "cmakeMinimumRequired": {
+      "major": 3,
+      "minor": 22,
+      "patch": 1
+    },
+    "configurePresets": [
+        {
+            "name": "MSVC-2022-x64-Debug",
+            "displayName": "Visual Studio 2022 - amd64 - Debug",
+            "description": "Using compilers for Visual Studio 17 2022 (x64 architecture)",
+            "generator": "Ninja",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe",
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_PATH}/scripts/buildsystems/vcpkg.cmake"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "MSVC-2022-x64-Debug-Build",
+            "displayName": "Visual Studio 2022 - amd64 - Debug - Build",
+            "configurePreset": "MSVC-2022-x64-Debug",
+            "configuration": "Debug"
+        }
+    ]
+}
