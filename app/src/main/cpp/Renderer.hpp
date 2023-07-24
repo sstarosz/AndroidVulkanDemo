@@ -6,34 +6,39 @@
 
 
 #include <vulkan/vulkan.hpp>
+#include <vector>
 
+enum class VulkanRendererValidationLayerLevel
+{
+    eNone,
+    eEnabled
+};
 
 
 class VulkanRenderer
 {
 
 public:
-    Renderer_API void run()
-    {
-        initWindow();
-        initVulkan();
-        mainLoop();
-        cleanup();
-    }
+    Renderer_API void initRenderer(vk::Instance& instance,
+                                   vk::SurfaceKHR& surface,
+                                   VulkanRendererValidationLayerLevel debugLevel);
+
+    
+
+
+    Renderer_API void resizeFramebuffer(uint32_t width, uint32_t height);
 
 private:
-    void initWindow();
     void initVulkan();
-    void mainLoop();
     void cleanup();
 
-
-    void createInstance();
     void createDebugMessenger();
-    void createSurface();
 
-    vk::Instance mInstance;
-    vk::DebugUtilsMessengerEXT mDebugMessenger;
+    VulkanRendererValidationLayerLevel m_enableValidationLayers;
+
+    vk::Instance m_instance;
+    vk::DebugUtilsMessengerEXT m_debugMessenger;
+    vk::SurfaceKHR  m_surface;
 };
 
 

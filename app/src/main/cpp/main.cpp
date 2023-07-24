@@ -10,10 +10,107 @@
 #include "Renderer.hpp"
 
 
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+std::vector<const char*> getValidationLayers()
+{
+    std::vector<const char*> validationLayers;
+
+    if(enableValidationLayers)
+    {
+        validationLayers.push_back( "VK_LAYER_KHRONOS_validation");
+    }
+
+    if (!checkValidationLayerSupport(validationLayers))
+    {
+        throw std::runtime_error("validation layer requested, but not available!");
+    }
+
+    return validationLayers;
+}
+
+bool checkValidationLayerSupport(const std::vector<const char*> validationLayers)
+{
+    std::vector<vk::LayerProperties> availableLayers = vk::enumerateInstanceLayerProperties();
+
+    for (const auto* layerName : validationLayers)
+    {
+        bool layerFound = false;
+
+        for (const auto& layerProperties : availableLayers)
+        {
+            if (strcmp(layerName, layerProperties.layerName) == 0)
+            {
+                layerFound = true;
+                break;
+            }
+        }
+
+        if (!layerFound)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::vector<const char*> getEnabledExtensions()
+{
+    std::vector<const char*> extensions;
+
+    extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+
+
+    if (enableValidationLayers)
+    {
+        extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+
+    return extensions;
+}
+
+vk::Instance createInstance()
+{
+    vk::ApplicationInfo appInfo { "Android Vulkan Demo",
+                                  1,
+                                  "No Engine",
+                                  1,
+                                  VK_API_VERSION_1_2 };
+
+
+    auto enabledLayers = getValidationLayers();
+    auto enabledExtensions = getEnabledExtensions();
+
+
+    vk::InstanceCreateInfo instanceCreateInfo { {}, &appInfo, enabledLayers, enabledExtensions };
+
+
+    return vk::createInstance(instanceCreateInfo);
+}
+
+
+vk::SurfaceKHR createSurface(vk::Instance& instance, GLFWwindow* window)
+{
+    VkSurfaceKHR surface;
+    if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create window surface!");
+    }
+
+    return  static_cast<vk::SurfaceKHR>(surface);
+}
+
 int main() {
     // Initialize GLFW
     glfwInit();
+
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
     GLFWwindow* window = glfwCreateWindow(1280, 720, "Vulkan ImGui Example", nullptr, nullptr);
     if (!glfwVulkanSupported())
     {
@@ -21,9 +118,19 @@ int main() {
         return 1;
     }
 
+    vk::Instance instance = createInstance();
+    vk::SurfaceKHR surface = createSurface(instance, window);
 
+    VulkanRendererValidationLayerLevel validationLayer = enableValidationLayers ? 
+                                                            VulkanRendererValidationLayerLevel::eEnabled :
+                                                            VulkanRendererValidationLayerLevel::eNone;
 
     // Initialize Vulkan
+    VulkanRenderer vulkanRenderer;
+    vulkanRenderer.initRenderer(instance,
+                                surface,
+                                VulkanRendererValidationLayerLevel::eEnabled);
+
 
     // Create the ImGui context
     IMGUI_CHECKVERSION();
