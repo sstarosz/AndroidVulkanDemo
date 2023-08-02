@@ -16,21 +16,20 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-std::vector<const char*> getValidationLayers()
+static constexpr uint32_t initialWindowsWidth = 1280;
+static constexpr uint32_t initialWindowsHeight = 720;
+
+static void check_vk_result(VkResult err)
 {
-    std::vector<const char*> validationLayers;
-
-    if(enableValidationLayers)
+    if (err == 0)
     {
-        validationLayers.push_back( "VK_LAYER_KHRONOS_validation");
+        return;
     }
-
-    if (!checkValidationLayerSupport(validationLayers))
+    std::cerr << "[vulkan] Error: VkResult =" << err << std::endl;
+    if (err < 0)
     {
-        throw std::runtime_error("validation layer requested, but not available!");
+        abort();
     }
-
-    return validationLayers;
 }
 
 bool checkValidationLayerSupport(const std::vector<const char*> validationLayers)
@@ -57,6 +56,23 @@ bool checkValidationLayerSupport(const std::vector<const char*> validationLayers
     }
 
     return true;
+}
+
+std::vector<const char*> getValidationLayers()
+{
+    std::vector<const char*> validationLayers;
+
+    if(enableValidationLayers)
+    {
+        validationLayers.push_back( "VK_LAYER_KHRONOS_validation");
+    }
+
+    if (!checkValidationLayerSupport(validationLayers))
+    {
+        throw std::runtime_error("validation layer requested, but not available!");
+    }
+
+    return validationLayers;
 }
 
 std::vector<const char*> getEnabledExtensions()
@@ -88,7 +104,11 @@ vk::Instance createInstance()
     auto enabledExtensions = getEnabledExtensions();
 
 
-    vk::InstanceCreateInfo instanceCreateInfo { {}, &appInfo, enabledLayers, enabledExtensions };
+    vk::InstanceCreateInfo instanceCreateInfo { 
+        {},
+        &appInfo,
+        enabledLayers,
+        enabledExtensions };
 
 
     return vk::createInstance(instanceCreateInfo);
@@ -108,16 +128,19 @@ vk::SurfaceKHR createSurface(vk::Instance& instance, GLFWwindow* window)
 int main() {
     // Initialize GLFW
     glfwInit();
-
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Vulkan ImGui Example", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(initialWindowsWidth,
+                                            initialWindowsHeight,
+                                            "Vulkan ImGui Example",
+                                            nullptr,
+                                            nullptr);
     if (!glfwVulkanSupported())
     {
         std::cout << "GLFW: Vulkan Not Supported" << std::endl;
         return 1;
     }
 
+    //Initialize Renderer
     vk::Instance instance = createInstance();
     vk::SurfaceKHR surface = createSurface(instance, window);
 
@@ -125,24 +148,44 @@ int main() {
                                                             VulkanRendererValidationLayerLevel::eEnabled :
                                                             VulkanRendererValidationLayerLevel::eNone;
 
-    // Initialize Vulkan
+
     VulkanRenderer vulkanRenderer;
+    vulkanRenderer.setupSwapchain(initialWindowsWidth, initialWindowsHeight);
     vulkanRenderer.initRenderer(instance,
                                 surface,
                                 VulkanRendererValidationLayerLevel::eEnabled);
 
 
-    // Create the ImGui context
+    return 0;
+    // Initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+    ImGui::StyleColorsDark();
 
     // Initialize the ImGui GLFW and Vulkan backends
     ImGui_ImplGlfw_InitForVulkan(window, true);
     ImGui_ImplVulkan_InitInfo init_info = {};
-    /*TODO Initaalize ImGui InitInfo*/
+    init_info.Instance = vulkanRenderer.getInstance();
+    init_info.PhysicalDevice = vulkanRenderer.getPhysicalDevice();
+    init_info.Device = vulkanRenderer.getLogicalDevice();
+    init_info.QueueFamily = vulkanRenderer.getQueueFamilyIndex();
+    init_info.Queue = vulkanRenderer.getQueue();
+    init_info.PipelineCache = {};
+    init_info.DescriptorPool = vulkanRenderer.getUiDescriptorPool();
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = 2;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = {};
+    init_info.CheckVkResultFn = check_vk_result;
+    ImGui_ImplVulkan_Init(&init_info, vulkanRenderer.getUiRenderPass());
 
-    //ImGui_ImplVulkan_Init(&init_info, /* Your render pass */);
+
+
 
     // Main loop
     while (!glfwWindowShouldClose(window)) {
@@ -154,15 +197,13 @@ int main() {
         ImGui::NewFrame();
 
         // Render your ImGui elements here
+        
+        
+        ImGui::ShowDemoWindow();
+
 
         ImGui::Render();
-
-        // Submit ImGui draw data to Vulkan
-        // You need to set up a command buffer for rendering ImGui elements
-
-        // Submit your own application's rendering command buffer to Vulkan
-
-        // Present the frame
+        //renderer->update
     }
 
     // Cleanup
