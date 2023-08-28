@@ -9,6 +9,7 @@
 #include <vector>
 #include <optional>
 #include <array>
+#include "Math/Math.hpp"
 
 enum class VulkanRendererValidationLayerLevel
 {
@@ -34,6 +35,42 @@ struct SwapChainSupportDetails
     std::vector<vk::PresentModeKHR> presentModes;
 
     static SwapChainSupportDetails querySwapChainSupport(const vk::PhysicalDevice& device, const vk::SurfaceKHR& surface);
+};
+
+struct UniformBufferObject
+{
+    st::math::Matrix4x4 model;
+    st::math::Matrix4x4 view;
+    st::math::Matrix4x4 proj;
+};
+
+
+struct Vertex
+{
+    st::math::Vector3 m_pos;
+    st::math::Vector2 m_texCoord;
+    st::math::Vector3 m_color;
+    st::math::Vector3 m_normal;
+
+
+    static vk::VertexInputBindingDescription getBindingDescription();
+
+    static std::array<vk::VertexInputAttributeDescription, 4> getAttributeDescriptions();
+
+    bool operator==(const Vertex&) const = default;
+    auto operator<=>(const Vertex&) const = default;
+
+
+    friend std::ostream& operator<<(std::ostream& os, const Vertex& vertex)
+    {
+        os << "\nVertex(\n";
+        os << "\tPos    {" << vertex.m_pos.X       << ", " << vertex.m_pos.Y      << ", " << vertex.m_pos.Z  << "}\n";
+        os << "\tUV     {" << vertex.m_texCoord.x  << ", " << vertex.m_texCoord.y << "}\n";
+        os << "\tColor  {" << vertex.m_color.X     << ", " << vertex.m_color.Y    << ", " << vertex.m_color.Z  << "}\n";
+        os << "\tNormal {" << vertex.m_normal.X    << ", " << vertex.m_normal.Y   << ", " << vertex.m_normal.Z << "}\n";
+        os << ")\n";
+        return os;
+    }
 };
 
 class VulkanRenderer
@@ -74,7 +111,27 @@ private:
     vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities) const;
 	void createSwapchainImageViews();
 
+    void createRenderPass();
+    vk::Format findDepthFormat() const;
+    vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
 
+    void createGraphicsPipeline();
+    void createTextureSampler();
+    void createUniformBuffers();
+    void createDescriptorPool();
+    void createDescriptorSetLayout();
+
+
+    void createUiGraphicsPipeline();
+
+
+
+    void createBuffer(vk::DeviceSize size,
+                      vk::BufferUsageFlags usage,
+                      vk::MemoryPropertyFlags properties,
+                      vk::Buffer& buffer,
+                      vk::DeviceMemory& bufferMemory) const;
+    uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
 
     VulkanRendererValidationLayerLevel m_enableValidationLayers;
 
@@ -95,7 +152,24 @@ private:
     uint32_t m_swapchainWidth;
     uint32_t m_swapchainHeight;
 
+    vk::RenderPass m_renderPass;
+    vk::ImageView m_depthImageView;
+
+    vk::Pipeline m_graphicsPipeline;
+    vk::PipelineLayout m_pipelineLayout;
+    vk::PipelineCache m_pipelineCache;
+    std::vector<vk::DynamicState> m_dynamicStateEnables;
+    vk::PipelineDynamicStateCreateInfo m_pipelineDynamicStateCreateInfo;
+
+    //GraphicsPipeline
+    vk::Sampler m_textureSampler;
+    std::vector<vk::Buffer> m_uniformBuffers;
+	std::vector<vk::DeviceMemory> m_uniformBuffersMemory;
+    vk::DescriptorPool m_primitiveDescriptorPool;
+    vk::DescriptorSetLayout m_descriptorSetLayout;
+
     constexpr static std::array m_deviceExtensions { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    constexpr static uint32_t MAX_FRAMES_IN_FLIGHT{2};
 
 };
 

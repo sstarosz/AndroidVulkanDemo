@@ -11,6 +11,7 @@
 #include <sstream>
 #include <iostream>
 #include <set>
+#include "Shaders/Shader.hpp"
 
 void printLog(const std::string& message)
 {
@@ -234,7 +235,7 @@ void VulkanRenderer::initVulkan()
     {
         createDebugMessenger();
     }
-   pickPhysicalDevice();
+	pickPhysicalDevice();
 	createLogicalDevice();
 	createSwapChain();
 }
@@ -484,4 +485,263 @@ void VulkanRenderer::createSwapchainImageViews()
 
 		m_swapChainImageViews.emplace_back(m_device.createImageView(createInfo));
 	}
+}
+
+void VulkanRenderer::createRenderPass()
+{
+	vk::AttachmentDescription colorAttachment { vk::AttachmentDescriptionFlags{},
+												m_swapChainImageFormat,
+												vk::SampleCountFlagBits::e1,
+												vk::AttachmentLoadOp::eClear,
+												vk::AttachmentStoreOp::eStore,
+												vk::AttachmentLoadOp::eDontCare,
+												vk::AttachmentStoreOp::eDontCare,
+												vk::ImageLayout::eUndefined,
+												vk::ImageLayout::ePresentSrcKHR };
+
+	vk::AttachmentDescription depthAttachment { vk::AttachmentDescriptionFlags{},
+												findDepthFormat(),
+												vk::SampleCountFlagBits::e1,
+												vk::AttachmentLoadOp::eClear,
+												vk::AttachmentStoreOp::eDontCare,
+												vk::AttachmentLoadOp::eDontCare,
+												vk::AttachmentStoreOp::eDontCare,
+												vk::ImageLayout::eUndefined,
+												vk::ImageLayout::eDepthStencilAttachmentOptimal };
+
+
+	vk::AttachmentReference colorAttachmentRef { 0, vk::ImageLayout::eColorAttachmentOptimal };
+	vk::AttachmentReference depthAttachmentRef { 1, vk::ImageLayout::eDepthStencilAttachmentOptimal };
+
+
+	vk::SubpassDescription subpass { vk::SubpassDescriptionFlags{}, vk::PipelineBindPoint::eGraphics, {}, colorAttachmentRef, {}, &depthAttachmentRef, {} };
+
+
+	vk::SubpassDependency dependency { VK_SUBPASS_EXTERNAL,
+										0,
+										vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
+										vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
+										vk::AccessFlagBits::eNoneKHR,
+										vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite };
+
+
+	std::array<vk::AttachmentDescription, 2> attachments { colorAttachment, depthAttachment };
+
+
+	//attachment [0] -> color
+	//atachment  [1] -> depth
+	vk::RenderPassCreateInfo renderPassInfo { vk::RenderPassCreateFlags{}, attachments, subpass, dependency };
+
+
+	m_renderPass = m_device.createRenderPass(renderPassInfo);
+}
+
+vk::Format VulkanRenderer::findDepthFormat() const
+{
+	return findSupportedFormat({vk::Format::eD32Sfloat,
+								vk::Format::eD32SfloatS8Uint,
+								vk::Format::eD24UnormS8Uint },
+								vk::ImageTiling::eOptimal,
+								vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+}
+
+vk::Format VulkanRenderer::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const
+{
+	for (const auto& format : candidates)
+	{
+		vk::FormatProperties props { m_physicalDevice.getFormatProperties(format) };
+
+		if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features)
+		{
+			return format;
+		}
+		else if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features)
+		{
+			return format;
+		}
+	}
+
+	throw std::runtime_error("failed to find supported format!");
+}
+
+void VulkanRenderer::createGraphicsPipeline()
+{
+	createTextureSampler();
+	createUniformBuffers();
+	createDescriptorPool();
+	createDescriptorSetLayout(); // must stay in pipline creation
+
+	auto vertShaderCode =  st::renderer::Shader::readFile("../Assets/Shaders/vert.spv");
+	auto fragShaderCode =  st::renderer::Shader::readFile("../Assets/Shaders/frag.spv");
+
+
+	vk::ShaderModule vertShaderModule =  st::renderer::Shader::createShaderModule(m_device, vertShaderCode);
+	vk::ShaderModule fragShaderModule =  st::renderer::Shader::createShaderModule(m_device, fragShaderCode);
+
+
+	vk::PipelineShaderStageCreateInfo vertShaderStageInfo { {}, vk::ShaderStageFlagBits::eVertex, vertShaderModule, "main" };
+
+	vk::PipelineShaderStageCreateInfo fragShaderStageInfo { {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main" };
+
+	std::vector<vk::PipelineShaderStageCreateInfo> shaderStages { vertShaderStageInfo, fragShaderStageInfo };
+
+
+	auto bindingDescription = geometry::Vertex::getBindingDescription();
+	auto attributeDescriptions = geometry::Vertex::getAttributeDescriptions();
+
+	vk::PipelineVertexInputStateCreateInfo vertexInputInfo { {}, bindingDescription, attributeDescriptions };
+
+	vk::PipelineInputAssemblyStateCreateInfo inputAssembly { vk::PipelineInputAssemblyStateCreateFlags {}, vk::PrimitiveTopology::eTriangleList, VK_FALSE };
+
+
+	vk::PipelineViewportStateCreateInfo viewportState { vk::PipelineViewportStateCreateFlags {}, 1, {}, 1, {} };
+
+	vk::PipelineRasterizationStateCreateInfo rasterizer { vk::PipelineRasterizationStateCreateFlags {},
+															VK_FALSE,
+															VK_FALSE,
+															vk::PolygonMode::eFill,
+															vk::CullModeFlagBits::eBack,
+															vk::FrontFace::eCounterClockwise,
+															VK_FALSE,
+															0.0f,
+															0.0f,
+															0.0f,
+															1.0F };
+
+	vk::PipelineMultisampleStateCreateInfo multisampling { vk::PipelineMultisampleStateCreateFlags {}, vk::SampleCountFlagBits::e1, VK_FALSE };
+
+	vk::PipelineDepthStencilStateCreateInfo depthStencil { {}, true, true, vk::CompareOp::eLess, false, false };
+
+	m_dynamicStateEnables = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+	m_pipelineDynamicStateCreateInfo = vk::PipelineDynamicStateCreateInfo { {}, m_dynamicStateEnables };
+
+	vk::PipelineColorBlendAttachmentState colorBlendAttachment { VK_FALSE,
+																	vk::BlendFactor::eZero,
+																	vk::BlendFactor::eZero,
+																	vk::BlendOp::eAdd,
+																	vk::BlendFactor::eZero,
+																	vk::BlendFactor::eZero,
+																	vk::BlendOp::eAdd,
+																	vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+																		vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA };
+
+
+	vk::PipelineColorBlendStateCreateInfo colorBlending {
+		vk::PipelineColorBlendStateCreateFlags {},
+		VK_FALSE,
+		vk::LogicOp::eCopy,
+		colorBlendAttachment,
+		{ 0.0f, 0.0f, 0.0f, 0.0f }
+	};
+
+
+	vk::PipelineLayoutCreateInfo pipelineLayoutInfo { vk::PipelineLayoutCreateFlags {}, m_descriptorSetLayout };
+
+	m_pipelineLayout = m_device.createPipelineLayout(pipelineLayoutInfo);
+
+	vk::GraphicsPipelineCreateInfo pipelineInfo { vk::PipelineCreateFlags {},
+													shaderStages,
+													&vertexInputInfo,
+													&inputAssembly,
+													{},
+													&viewportState,
+													&rasterizer,
+													&multisampling,
+													&depthStencil,
+													&colorBlending,
+													&m_pipelineDynamicStateCreateInfo,
+													m_pipelineLayout,
+													m_renderPass };
+
+
+	m_pipelineCache = m_device.createPipelineCache(vk::PipelineCacheCreateInfo());
+	m_graphicsPipeline = m_device.createGraphicsPipeline(m_pipelineCache, pipelineInfo).value;
+
+
+	//Note VkShaderModule is passed into pipline and are not longer available trought object they are used to create
+	//If ther are used later, then they must not be destroyed
+	m_device.destroy(fragShaderModule);
+	m_device.destroy(vertShaderModule);
+}
+
+void VulkanRenderer::createTextureSampler()
+{
+	vk::PhysicalDeviceProperties properties = m_physicalDevice.getProperties();
+
+		vk::SamplerCreateInfo sampleInfo {
+			{},
+			vk::Filter::eLinear,
+			vk::Filter::eLinear,
+			vk::SamplerMipmapMode::eLinear,
+			vk::SamplerAddressMode::eRepeat,
+			vk::SamplerAddressMode::eRepeat,
+			vk::SamplerAddressMode::eRepeat,
+			0.0f,
+			false,
+			properties.limits.maxSamplerAnisotropy,
+			false,
+			vk::CompareOp::eAlways,
+			0.0f,
+			0.0f,
+			vk::BorderColor::eIntOpaqueBlack,
+			false,
+		};
+
+		m_textureSampler = m_device.createSampler(sampleInfo);
+}
+
+void VulkanRenderer::createUniformBuffers()
+{
+	const VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+	m_uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	m_uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		createBuffer(bufferSize,
+					vk::BufferUsageFlagBits::eUniformBuffer,
+					vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+					m_uniformBuffers[i],
+					m_uniformBuffersMemory[i]);
+	}
+
+}
+
+
+uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const
+{
+	vk::PhysicalDeviceMemoryProperties memProperties = m_physicalDevice.getMemoryProperties();
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+	{
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+		{
+			return i;
+		}
+	}
+
+	throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void VulkanRenderer::createBuffer(vk::DeviceSize size,
+								  vk::BufferUsageFlags usage,
+								  vk::MemoryPropertyFlags properties,
+								  vk::Buffer& buffer,
+								  vk::DeviceMemory& bufferMemory) const
+{
+
+	vk::BufferCreateInfo bufferInfo { {}, size, usage, vk::SharingMode::eExclusive };
+
+	buffer = m_device.createBuffer(bufferInfo);
+
+	vk::MemoryRequirements memoryRequirements = m_device.getBufferMemoryRequirements(buffer);
+
+	vk::MemoryAllocateInfo allocInfo { memoryRequirements.size, findMemoryType(memoryRequirements.memoryTypeBits, properties) };
+
+	bufferMemory = m_device.allocateMemory(allocInfo);
+
+
+	m_device.bindBufferMemory(buffer, bufferMemory, 0);
 }

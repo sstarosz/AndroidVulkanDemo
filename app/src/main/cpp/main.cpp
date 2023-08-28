@@ -114,7 +114,6 @@ vk::Instance createInstance()
     return vk::createInstance(instanceCreateInfo);
 }
 
-
 vk::SurfaceKHR createSurface(vk::Instance& instance, GLFWwindow* window)
 {
     VkSurfaceKHR surface;

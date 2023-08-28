@@ -16,3 +16,4 @@ local.properties
 
 /.idea/
 app/src/main/cpp/out/*
+.vscode/

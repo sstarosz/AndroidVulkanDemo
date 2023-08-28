@@ -10,6 +10,7 @@ cmake_minimum_required(VERSION 3.22.1)
 project("androidvulkandemo")
 
 
+
 find_package(Vulkan REQUIRED)
 
 set(Link_Libraries "")
@@ -39,12 +40,14 @@ endif()
 # or SHARED, and provides the relative paths to its source code.
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
+add_subdirectory(Math)
 
 
-add_library(Renderer SHARED "Renderer.cpp" "Renderer.hpp")
+
+add_library(Renderer SHARED "Renderer.cpp" "Renderer.hpp" "Shaders/Shader.hpp" "Shaders/Shader.cpp")
 target_compile_features(Renderer PRIVATE cxx_std_20)
 target_include_directories(Renderer PRIVATE ${Include_Diirectories})   
-target_link_libraries(Renderer PRIVATE Vulkan::Vulkan ${Link_Libraries})
+target_link_libraries(Renderer PRIVATE Vulkan::Vulkan ${Link_Libraries} Math)
 
 
 if(NOT ANDROID)
