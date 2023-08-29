@@ -6,6 +6,7 @@ namespace st::renderer
 {
 	std::vector<char> Shader::readFile(const std::string& filename)
 	{
+		//TO-DO how to read file from android
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
 		if (!file.is_open())

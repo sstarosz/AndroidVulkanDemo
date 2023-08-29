@@ -17,6 +17,7 @@ endfunction()
 
 set(Sources
 	"Sources/Matrix4x4.cpp"
+	"Sources/Vector2.cpp"
 	"Sources/Vector3.cpp"
 	"Sources/Vector4.cpp")
 
@@ -26,6 +27,7 @@ set(Private_Headers
 set(Public_Headers
 	"Include/Math/Math.hpp"
 	"Include/Math/Matrix4x4.hpp"
+	"Include/Math/Vector2.hpp"
 	"Include/Math/Vector3.hpp"
 	"Include/Math/Vector4.hpp"
 )
