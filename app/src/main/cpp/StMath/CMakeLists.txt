@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(Math
+project(StMath
 		VERSION 0.0.1
 		DESCRIPTION "Library for mathematical oeprations"
 		LANGUAGES CXX)
@@ -25,18 +25,19 @@ set(Private_Headers
 	)
 
 set(Public_Headers
-	"Include/Math/Math.hpp"
-	"Include/Math/Matrix4x4.hpp"
-	"Include/Math/Vector2.hpp"
-	"Include/Math/Vector3.hpp"
-	"Include/Math/Vector4.hpp"
+	"Include/StMath/StMath.hpp"
+	"Include/StMath/Matrix4x4.hpp"
+	"Include/StMath/Vector2.hpp"
+	"Include/StMath/Vector3.hpp"
+	"Include/StMath/Vector4.hpp"
 )
 
 
 add_library(${PROJECT_NAME} ${Sources} ${Private_Headers} ${Public_Headers})
 
+message("!!!!! ${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/Math") 
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include/StMath") 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Sources") 
 
 

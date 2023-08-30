@@ -11,6 +11,44 @@
 #include <iostream>
 #include <set>
 #include "Shaders/Shader.hpp"
+#include "StMath/StMath.hpp"
+struct UniformBufferObject
+{
+    st::math::Matrix4x4 model;
+    st::math::Matrix4x4 view;
+    st::math::Matrix4x4 proj;
+};
+struct Vertex
+{
+    st::math::Vector3 m_pos;
+    st::math::Vector2 m_texCoord;
+    st::math::Vector3 m_color;
+    st::math::Vector3 m_normal;
+
+
+    static vk::VertexInputBindingDescription getBindingDescription();
+
+    static std::array<vk::VertexInputAttributeDescription, 4> getAttributeDescriptions();
+
+    bool operator==(const Vertex&) const = default;
+    auto operator<=>(const Vertex&) const = default;
+
+
+    friend std::ostream& operator<<(std::ostream& os, const Vertex& vertex)
+    {
+        os << "\nVertex(\n";
+        os << "\tPos    {" << vertex.m_pos.X       << ", " << vertex.m_pos.Y      << ", " << vertex.m_pos.Z  << "}\n";
+        os << "\tUV     {" << vertex.m_texCoord.X  << ", " << vertex.m_texCoord.Y << "}\n";
+        os << "\tColor  {" << vertex.m_color.X     << ", " << vertex.m_color.Y    << ", " << vertex.m_color.Z  << "}\n";
+        os << "\tNormal {" << vertex.m_normal.X    << ", " << vertex.m_normal.Y   << ", " << vertex.m_normal.Z << "}\n";
+        os << ")\n";
+        return os;
+    }
+};
+
+
+
+
 
 void printLog(const std::string &message)
 {
