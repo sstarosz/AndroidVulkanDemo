@@ -93,13 +93,31 @@ private:
 
     void createUiGraphicsPipeline();
 
+    void createCommandPool();
 
+    void createFramebuffer();
+    void createDepthResources();
 
     void createBuffer(vk::DeviceSize size,
                       vk::BufferUsageFlags usage,
                       vk::MemoryPropertyFlags properties,
                       vk::Buffer& buffer,
                       vk::DeviceMemory& bufferMemory) const;
+
+    void createImage(uint32_t width,
+				 uint32_t height,
+				 vk::Format format,
+				 vk::ImageTiling tiling,
+				 vk::ImageUsageFlags usage,
+				 vk::MemoryPropertyFlags properties,
+				 vk::Image& image,
+				 vk::DeviceMemory& imageMemory) const;
+
+    vk::ImageView createImageView(vk::Image image,
+                                  vk::Format format,
+                                  vk::ImageAspectFlags aspectFlags) const;
+
+
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
 
     VulkanRendererValidationLayerLevel m_enableValidationLayers;
@@ -122,7 +140,6 @@ private:
     uint32_t m_swapchainHeight;
 
     vk::RenderPass m_renderPass;
-    vk::ImageView m_depthImageView;
 
     vk::Pipeline m_graphicsPipeline;
     vk::PipelineLayout m_pipelineLayout;
@@ -136,6 +153,14 @@ private:
 	std::vector<vk::DeviceMemory> m_uniformBuffersMemory;
     vk::DescriptorPool m_primitiveDescriptorPool;
     vk::DescriptorSetLayout m_descriptorSetLayout;
+
+
+    vk::CommandPool m_commandPool;
+
+    std::vector<vk::Framebuffer> m_swapchainFramebuffers;
+    vk::Image m_depthImage; 
+    vk::DeviceMemory m_depthImageMemory;
+    vk::ImageView m_depthImageView;
 
     constexpr static std::array m_deviceExtensions { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
     constexpr static uint32_t MAX_FRAMES_IN_FLIGHT{2};

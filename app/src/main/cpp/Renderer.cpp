@@ -266,6 +266,11 @@ void VulkanRenderer::initVulkan()
 	pickPhysicalDevice();
 	createLogicalDevice();
 	createSwapChain();
+	createRenderPass();
+	createGraphicsPipeline();
+	//createUiGraphicsPipeline();
+	createCommandPool();
+	createFramebuffer();
 }
 
 bool VulkanRenderer::checkDeviceExtensionSupport(const vk::PhysicalDevice &device)
@@ -747,11 +752,57 @@ uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyF
 	throw std::runtime_error("failed to find suitable memory type!");
 }
 
+void VulkanRenderer::createCommandPool()
+{
+	QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices::findQueueFamilies(m_physicalDevice, m_surface);
+
+		//TODO This is a graphic commandPoll
+	vk::CommandPoolCreateInfo poolInfo { vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndices.graphicsFamily.value() };
+
+	m_commandPool = m_device.createCommandPool(poolInfo);
+}
+
+void VulkanRenderer::createFramebuffer()
+{
+	createDepthResources();
+
+	m_swapchainFramebuffers.reserve(m_swapChainImageViews.size());
+	for (const auto& swapChainImageView : m_swapChainImageViews)
+	{
+		std::array<vk::ImageView, 2> attachments { swapChainImageView, m_depthImageView };
+
+		vk::FramebufferCreateInfo framebufferInfo { vk::FramebufferCreateFlags {},
+													m_renderPass,
+													attachments,
+													m_swapChainExtent.width,
+													m_swapChainExtent.height,
+													1 };
+
+		m_swapchainFramebuffers.emplace_back(m_device.createFramebuffer(framebufferInfo));
+	}
+}
+
+void VulkanRenderer::createDepthResources()
+{
+	vk::Format depthFormat = findDepthFormat();
+
+	createImage(m_swapChainExtent.width,
+							m_swapChainExtent.height,
+							depthFormat,
+							vk::ImageTiling::eOptimal,
+							vk::ImageUsageFlagBits::eDepthStencilAttachment,
+							vk::MemoryPropertyFlagBits::eDeviceLocal,
+							m_depthImage,
+							m_depthImageMemory);
+
+	m_depthImageView = createImageView(m_depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
+}
+
 void VulkanRenderer::createBuffer(vk::DeviceSize size,
-								  vk::BufferUsageFlags usage,
-								  vk::MemoryPropertyFlags properties,
-								  vk::Buffer &buffer,
-								  vk::DeviceMemory &bufferMemory) const
+                                  vk::BufferUsageFlags usage,
+                                  vk::MemoryPropertyFlags properties,
+                                  vk::Buffer &buffer,
+                                  vk::DeviceMemory &bufferMemory) const
 {
 
 	vk::BufferCreateInfo bufferInfo{{}, size, usage, vk::SharingMode::eExclusive};
@@ -766,6 +817,48 @@ void VulkanRenderer::createBuffer(vk::DeviceSize size,
 
 	m_device.bindBufferMemory(buffer, bufferMemory, 0);
 }
+
+void VulkanRenderer::createImage(uint32_t width,
+				 uint32_t height,
+				 vk::Format format,
+				 vk::ImageTiling tiling,
+				 vk::ImageUsageFlags usage,
+				 vk::MemoryPropertyFlags properties,
+				 vk::Image& image,
+				 vk::DeviceMemory& imageMemory) const
+{
+
+	vk::ImageCreateInfo imageInfo {
+		{},
+        vk::ImageType::e2D,          format, { width, height, 1 },
+        1, 1, vk::SampleCountFlagBits::e1, tiling,
+		usage, vk::SharingMode::eExclusive, {},
+        vk::ImageLayout::eUndefined
+	};
+
+	image = m_device.createImage(imageInfo);
+
+	vk::MemoryRequirements m_memRequirements = m_device.getImageMemoryRequirements(image);
+
+	vk::MemoryAllocateInfo allocInfo { m_memRequirements.size, findMemoryType(m_memRequirements.memoryTypeBits, properties) };
+
+	imageMemory = m_device.allocateMemory(allocInfo);
+
+	m_device.bindImageMemory(image, imageMemory, 0);
+}
+
+vk::ImageView VulkanRenderer::createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags) const
+{
+	vk::ImageViewCreateInfo viewInfo {
+		{},
+		image, vk::ImageViewType::e2D, format, {},
+		{ aspectFlags, 0, 1, 0, 1 },
+		{}
+	};
+
+	return m_device.createImageView(viewInfo);
+}
+
 
 vk::VertexInputBindingDescription Vertex::getBindingDescription()
 {
