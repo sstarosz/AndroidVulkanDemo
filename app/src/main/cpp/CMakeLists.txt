@@ -44,7 +44,7 @@ add_subdirectory(StMath)
 
 
 
-add_library(Renderer SHARED "Renderer.cpp" "Renderer.hpp" "Shaders/Shader.hpp" "Shaders/Shader.cpp")
+add_library(Renderer SHARED "Renderer.cpp" "Renderer.hpp" "Shaders/Shader.hpp" "Shaders/Shader.cpp" "Camera.hpp" "Camera.cpp")
 target_compile_features(Renderer PRIVATE cxx_std_20)
 target_include_directories(Renderer PRIVATE ${Include_Diirectories})   
 target_link_libraries(Renderer PRIVATE Vulkan::Vulkan ${Link_Libraries} StMath)

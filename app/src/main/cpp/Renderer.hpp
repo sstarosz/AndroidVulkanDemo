@@ -11,6 +11,7 @@
 #include <array>
 #include <ostream>
 
+
 enum class VulkanRendererValidationLayerLevel
 {
     eNone,
@@ -63,6 +64,8 @@ public:
     Renderer_API vk::DescriptorPool getUiDescriptorPool() const;
     Renderer_API vk::RenderPass getUiRenderPass() const;
 
+    Renderer_API void renderFrame();
+
 private:
     void initVulkan();
     void cleanup();
@@ -98,11 +101,21 @@ private:
     void createFramebuffer();
     void createDepthResources();
 
+    void createVertexBuffer();
+    void createIndexBuffer();
+    void createCommandBuffers();
+    void createSyncObjects();
+
+    void updateUniformBuffer(uint32_t currentImage);
+    void recordCommandBuffer(vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
+
     void createBuffer(vk::DeviceSize size,
                       vk::BufferUsageFlags usage,
                       vk::MemoryPropertyFlags properties,
                       vk::Buffer& buffer,
                       vk::DeviceMemory& bufferMemory) const;
+                      
+    void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
 
     void createImage(uint32_t width,
 				 uint32_t height,
@@ -153,7 +166,7 @@ private:
 	std::vector<vk::DeviceMemory> m_uniformBuffersMemory;
     vk::DescriptorPool m_primitiveDescriptorPool;
     vk::DescriptorSetLayout m_descriptorSetLayout;
-
+    std::vector<vk::DescriptorSet> m_descriptorSets;
 
     vk::CommandPool m_commandPool;
 
@@ -164,6 +177,30 @@ private:
 
     constexpr static std::array m_deviceExtensions { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
     constexpr static uint32_t MAX_FRAMES_IN_FLIGHT{2};
+
+
+    vk::Buffer m_planeVertexBuffer;
+	vk::DeviceMemory m_planeVertexBufferMemory;
+	vk::Buffer m_planeIndexBuffer;
+	vk::DeviceMemory m_planeIndexBufferMemory;
+
+    std::vector<vk::CommandBuffer> m_commandBuffers;
+
+    std::vector<vk::Semaphore> m_imageAvailableSemaphores;
+    std::vector<vk::Semaphore> m_renderFinishedSemaphores;
+    std::vector<vk::Fence> m_inFlightFences;
+
+    uint32_t currentFrame = 0;
+
+    bool m_framebufferResized = false;
+
+
+
+    /*ImGui*/
+    vk::DescriptorPool m_uiDescriptorPool;
+    vk::RenderPass m_uiRenderPass;
+
+
 
 };
 
