@@ -40,7 +40,7 @@ struct SwapChainSupportDetails
 
 
 
-
+struct Texture;
 
 
 class VulkanRenderer
@@ -65,6 +65,11 @@ public:
     Renderer_API vk::RenderPass getUiRenderPass() const;
 
     Renderer_API void renderFrame();
+
+    Renderer_API vk::CommandBuffer beginSingleTimeCommands();
+    Renderer_API void endSingleTimeCommands(vk::CommandBuffer commandBuffer);
+
+
 
 private:
     void initVulkan();
@@ -93,6 +98,7 @@ private:
     void createDescriptorPool();
     void createDescriptorSetLayout();
 
+    void updateGraphicPipelineRecourses();
 
     void createUiGraphicsPipeline();
 
@@ -130,8 +136,15 @@ private:
                                   vk::Format format,
                                   vk::ImageAspectFlags aspectFlags) const;
 
+    void createTextureImage(Texture& texture, vk::Image& textureImage, vk::DeviceMemory& textureImageMemory);
+    void createTextureImageView(vk::Image& textureImage, vk::ImageView& textureImageView);
+    void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+
 
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
+
+
+    void copyBufferToImage(vk::Buffer buffer, vk::Image image, uint32_t width, uint32_t height);
 
     VulkanRendererValidationLayerLevel m_enableValidationLayers;
 
@@ -167,6 +180,12 @@ private:
     vk::DescriptorPool m_primitiveDescriptorPool;
     vk::DescriptorSetLayout m_descriptorSetLayout;
     std::vector<vk::DescriptorSet> m_descriptorSets;
+
+    vk::Image m_textureImage;
+    vk::DeviceMemory textureImageMemory;
+    vk::ImageView m_textureImageView;
+
+
 
     vk::CommandPool m_commandPool;
 

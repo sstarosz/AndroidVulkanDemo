@@ -4,7 +4,12 @@
 #include <jni.h>
 #include <android/log.h>
 #define VK_USE_PLATFORM_ANDROID_KHR 0
+#else
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #endif
+
+
 
 #include <string>
 #include <sstream>
@@ -50,6 +55,15 @@ struct Vertex
 };
 
 
+struct Texture
+{
+	uint32_t textureWidth;
+	uint32_t textureHeight;
+	uint32_t texChannels;
+
+	std::span<std::byte> pixels;
+};
+
 static const std::vector<Vertex> planeVertexes {
     {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
     {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}}, 
@@ -57,7 +71,7 @@ static const std::vector<Vertex> planeVertexes {
     {{-0.5f, 0.5f,  0.0f}, {1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}} 
 };
 
-static const std::vector<uint16_t> planeIndices = {
+static const std::vector<uint32_t> planeIndices = {
     0, 1, 2, 2, 3, 0
 };
 
@@ -329,6 +343,27 @@ void VulkanRenderer::renderFrame()
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+Renderer_API vk::CommandBuffer VulkanRenderer::beginSingleTimeCommands()
+{ 
+	vk::CommandBufferAllocateInfo allocInfo { m_commandPool, vk::CommandBufferLevel::ePrimary, 1 };
+
+	vk::CommandBuffer commandBuffer = m_device.allocateCommandBuffers(allocInfo).front();
+
+	vk::CommandBufferBeginInfo beginInfo { vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+
+	commandBuffer.begin(beginInfo);
+	return commandBuffer;
+}
+
+Renderer_API void VulkanRenderer::endSingleTimeCommands(vk::CommandBuffer commandBuffer)
+{
+    commandBuffer.end();
+	vk::SubmitInfo submitInfo { {}, {}, commandBuffer };
+	m_graphicsQueue.submit(submitInfo);
+	m_graphicsQueue.waitIdle();
+	m_device.freeCommandBuffers(m_commandPool, commandBuffer);
+}
+
 /*--------------------------------------------------------------------------------*/
 
 void VulkanRenderer::initVulkan()
@@ -351,6 +386,8 @@ void VulkanRenderer::initVulkan()
 	createIndexBuffer();
 	createCommandBuffers();
 	createSyncObjects();
+
+	updateGraphicPipelineRecourses();
 
 }
 
@@ -818,6 +855,34 @@ void VulkanRenderer::createDescriptorSetLayout()
 	m_descriptorSetLayout = m_device.createDescriptorSetLayout(layoutInfo);
 }
 
+void VulkanRenderer::updateGraphicPipelineRecourses()
+{
+	int texWidth = 0;
+	int texHeight = 0;
+	int texChannels = 0;
+	stbi_uc* pixels = stbi_load("Assets/Textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+	std::span<std::byte> pixelsByte { reinterpret_cast<std::byte*>(pixels), static_cast<std::span<std::byte>::size_type>(texWidth * texHeight * 4) };
+	Texture texture { texWidth, texHeight, texChannels, pixelsByte };	
+
+	createTextureImage(texture, m_textureImage, textureImageMemory);
+	createTextureImageView(m_textureImage, m_textureImageView);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+	{
+		vk::DescriptorBufferInfo bufferInfo { m_uniformBuffers.at(i), 0, sizeof(UniformBufferObject) };
+		vk::DescriptorImageInfo imageInfo { m_textureSampler, m_textureImageView, vk::ImageLayout::eShaderReadOnlyOptimal };
+
+
+		std::array<vk::WriteDescriptorSet, 2> graphicDescriptorWrites {
+			vk::WriteDescriptorSet { m_descriptorSets.at(i), 0, 0, vk::DescriptorType::eUniformBuffer,        {},        bufferInfo, {}},
+			vk::WriteDescriptorSet { m_descriptorSets.at(i), 1, 0, vk::DescriptorType::eCombinedImageSampler, imageInfo, {},         {}}
+		};
+
+		m_device.updateDescriptorSets(graphicDescriptorWrites, {});
+	}
+}
+
 uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const
 {
 	vk::PhysicalDeviceMemoryProperties memProperties = m_physicalDevice.getMemoryProperties();
@@ -831,6 +896,21 @@ uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyF
 	}
 
 	throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void VulkanRenderer::copyBufferToImage(vk::Buffer buffer, vk::Image image, uint32_t width, uint32_t height)
+{
+	vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+
+	vk::BufferImageCopy region {
+		0, 0, 0, { vk::ImageAspectFlagBits::eColor, 0, 0, 1 },
+			{ 0, 0, 0 },
+			{ width, height, 1 }
+	};
+
+	commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
+
+	endSingleTimeCommands(commandBuffer);
 }
 
 void VulkanRenderer::createUiGraphicsPipeline()
@@ -847,7 +927,7 @@ void VulkanRenderer::createUiGraphicsPipeline()
 	vk::AttachmentDescription colorAttachment{vk::AttachmentDescriptionFlags{},
 											  m_swapChainImageFormat,
 											  vk::SampleCountFlagBits::e1,
-											  vk::AttachmentLoadOp::eLoad,
+											  vk::AttachmentLoadOp::eClear,
 											  vk::AttachmentStoreOp::eStore,
 											  vk::AttachmentLoadOp::eDontCare,
 											  vk::AttachmentStoreOp::eDontCare,
@@ -1175,6 +1255,98 @@ vk::ImageView VulkanRenderer::createImageView(vk::Image image, vk::Format format
 	return m_device.createImageView(viewInfo);
 }
 
+void VulkanRenderer::createTextureImage(Texture &texture, vk::Image &textureImage, vk::DeviceMemory &textureImageMemory)
+{
+	vk::DeviceSize imageSize = texture.textureWidth * texture.textureHeight * 4;
+
+
+		vk::Buffer stagingBuffer;
+		vk::DeviceMemory stagingBufferMemory;
+
+		createBuffer(imageSize,
+									 vk::BufferUsageFlagBits::eTransferSrc,
+									 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+									 stagingBuffer,
+									 stagingBufferMemory);
+
+		void* data = m_device.mapMemory(stagingBufferMemory, 0, imageSize);
+		memcpy(data, texture.pixels.data(), static_cast<size_t>(imageSize));
+		m_device.unmapMemory(stagingBufferMemory);
+
+
+		createImage(texture.textureWidth,
+								   texture.textureHeight,
+								   vk::Format::eR8G8B8A8Srgb,
+								   vk::ImageTiling::eOptimal,
+								   vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+								   vk::MemoryPropertyFlagBits::eDeviceLocal,
+								   textureImage,
+								   textureImageMemory);
+
+		transitionImageLayout(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+
+		copyBufferToImage(stagingBuffer, textureImage, texture.textureWidth, texture.textureHeight);
+
+		transitionImageLayout(textureImage,
+											 vk::Format::eR8G8B8A8Srgb,
+											 vk::ImageLayout::eTransferDstOptimal,
+											 vk::ImageLayout::eShaderReadOnlyOptimal);
+
+		m_device.destroyBuffer(stagingBuffer);
+		m_device.freeMemory(stagingBufferMemory);
+}
+
+void VulkanRenderer::createTextureImageView(vk::Image &textureImage, vk::ImageView &textureImageView)
+{
+	textureImageView = createImageView(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
+
+}
+
+void VulkanRenderer::transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+{
+	vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+
+		vk::ImageMemoryBarrier barrier {
+			vk::AccessFlagBits::eNone, vk::AccessFlagBits::eNone, oldLayout, newLayout,
+			VK_QUEUE_FAMILY_IGNORED,   VK_QUEUE_FAMILY_IGNORED,   image,     {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}
+		};
+
+		vk::PipelineStageFlags sourceStage {};
+		vk::PipelineStageFlags destinationStage {};
+
+		if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
+		{
+			barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+			barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+			sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+			destinationStage = vk::PipelineStageFlagBits::eTransfer;
+		}
+		else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+		{
+			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+			sourceStage = vk::PipelineStageFlagBits::eTransfer;
+			destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
+		}
+		else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		{
+			barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+			barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+			sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+			destinationStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+		}
+		else
+		{
+			throw std::invalid_argument("unsupported layout transition!");
+		}
+
+		commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, barrier);
+
+		endSingleTimeCommands(commandBuffer);
+}
 
 vk::VertexInputBindingDescription Vertex::getBindingDescription()
 {
