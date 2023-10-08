@@ -11,6 +11,7 @@
 
 
 
+
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -285,7 +286,7 @@ vk::RenderPass VulkanRenderer::getUiRenderPass() const
 }
 
 
-void VulkanRenderer::renderFrame()
+void VulkanRenderer::renderFrame(ImDrawData* imgui)
 {
     auto resultFence = m_device.waitForFences(m_inFlightFences.at(currentFrame), VK_TRUE, UINT64_MAX);
 		if (resultFence != vk::Result::eSuccess)
@@ -302,8 +303,7 @@ void VulkanRenderer::renderFrame()
 		m_device.resetFences(m_inFlightFences.at(currentFrame));
 
 		m_commandBuffers[currentFrame].reset(vk::CommandBufferResetFlags {});
-		recordCommandBuffer(m_commandBuffers[currentFrame], imageIndex);
-
+		recordCommandBuffer(m_commandBuffers[currentFrame], imageIndex, imgui);
 
 		vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
@@ -1142,7 +1142,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage)
 	m_device.unmapMemory(m_uniformBuffersMemory.at(currentImage));
 }
 
-void VulkanRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, uint32_t imageIndex)
+void VulkanRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, uint32_t imageIndex, ImDrawData* imgui)
 {
 	commandBuffer.begin(vk::CommandBufferBeginInfo {});
 
@@ -1189,6 +1189,14 @@ void VulkanRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, uint3
 
 	commandBuffer.drawIndexed(planeIndices.size(), 1, 0, 0, 0);
 	
+
+	vk::RenderPassBeginInfo renderPassInfo2 { m_uiRenderPass,
+												m_swapchainFramebuffers[imageIndex],
+												vk::Rect2D((0, 0), swapChainExtent),
+												clearValues };
+
+	commandBuffer.beginRenderPass(renderPassInfo2, vk::SubpassContents::eInline);
+	ImGui_ImplVulkan_RenderDrawData(imgui, m_commandBuffers[currentFrame]);
 
 	commandBuffer.endRenderPass();
 	commandBuffer.end();

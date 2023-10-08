@@ -1,7 +1,7 @@
 #ifdef Renderer_EXPORTS
 #define Renderer_API __declspec(dllexport)
 #else
-#define Renderer_API __declspec(dllimport)
+#define Renderer_API 
 #endif
 
 
@@ -11,6 +11,8 @@
 #include <array>
 #include <ostream>
 
+
+#include <imgui_impl_vulkan.h>
 
 enum class VulkanRendererValidationLayerLevel
 {
@@ -64,7 +66,7 @@ public:
     Renderer_API vk::DescriptorPool getUiDescriptorPool() const;
     Renderer_API vk::RenderPass getUiRenderPass() const;
 
-    Renderer_API void renderFrame();
+    Renderer_API void renderFrame(ImDrawData* imgui);
 
     Renderer_API vk::CommandBuffer beginSingleTimeCommands();
     Renderer_API void endSingleTimeCommands(vk::CommandBuffer commandBuffer);
@@ -113,7 +115,7 @@ private:
     void createSyncObjects();
 
     void updateUniformBuffer(uint32_t currentImage);
-    void recordCommandBuffer(vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
+    void recordCommandBuffer(vk::CommandBuffer& commandBuffer, uint32_t imageIndex, ImDrawData* imgui);
 
     void createBuffer(vk::DeviceSize size,
                       vk::BufferUsageFlags usage,

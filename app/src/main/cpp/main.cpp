@@ -196,24 +196,16 @@ int main() {
     ImGui_ImplVulkan_Init(&init_info, vulkanRenderer.getUiRenderPass());
 
 
-
-    {
+	{
         vk::CommandBuffer commandBuffer =  vulkanRenderer.beginSingleTimeCommands();
 
         ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-
-        vk::SubmitInfo endInfo{
-            {},
-            {},
-            commandBuffer,
-            {}
-        };
-
         vulkanRenderer.endSingleTimeCommands(commandBuffer);
         ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
+    
 
-
+    ImGui_ImplVulkan_SetMinImageCount(2);
     // Main loop
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -226,12 +218,20 @@ int main() {
         // Render your ImGui elements here
         
         ImGui::ShowDemoWindow();
-
+        if (ImGui::Button("Click Me"))
+        {
+            // Code to execute when the button is clicked
+            // This code block will run when the button is pressed.
+        }
 
         ImGui::Render();
-        //renderer->update
-        vulkanRenderer.renderFrame();
 
+        //renderer->update
+        auto* test = ImGui::GetDrawData();
+        vulkanRenderer.renderFrame(test);
+        //ImGui_ImplVulkan_RenderDrawData()
+
+        //ImGui::End();
     }
 
     // Cleanup
