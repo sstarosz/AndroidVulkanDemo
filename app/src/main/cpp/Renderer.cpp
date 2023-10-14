@@ -223,8 +223,8 @@ Public Api
 */
 
 void VulkanRenderer::initRenderer(vk::Instance &instance,
-								  vk::SurfaceKHR &surface,
-								  VulkanRendererValidationLayerLevel debugLevel)
+                                  vk::SurfaceKHR &surface,
+                                  VulkanRendererValidationLayerLevel debugLevel)
 {
 	m_instance = instance;
 	m_surface = surface;
@@ -286,61 +286,160 @@ vk::RenderPass VulkanRenderer::getUiRenderPass() const
 }
 
 
+void VulkanRenderer::startFrame()
+{
+    auto resultFence = m_device.waitForFences(m_inFlightFences.at(currentFrame), VK_TRUE, UINT64_MAX);
+	if (resultFence != vk::Result::eSuccess)
+	{
+		//std::cout << "syf" << std::endl;
+	}
+
+	auto [result, imageIndex] = m_device.acquireNextImageKHR(m_swapChain, UINT64_MAX, m_imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE);
+	currentFrameResult = result;
+	currentImageIndex = imageIndex;
+
+
+	updateUniformBuffer(currentFrame);
+
+
+	m_device.resetFences(m_inFlightFences.at(currentFrame));
+
+	m_commandBuffers[currentFrame].reset(vk::CommandBufferResetFlags {});
+	recordCommandBuffer(m_commandBuffers[currentFrame], currentImageIndex);
+
+
+}
+
+
+vk::CommandBuffer VulkanRenderer::beginUiRendering()
+{
+	
+	m_uiCommandBuffers[currentFrame].begin(vk::CommandBufferBeginInfo {});
+
+	//Draw primitive
+	vk::Extent2D swapChainExtent = m_swapChainExtent;
+	vk::RenderPassBeginInfo renderPassInfo { m_uiRenderPass,
+											m_uiSwapchainFramebuffers[currentImageIndex],
+											vk::Rect2D((0, 0), swapChainExtent)};
+
+	m_uiCommandBuffers[currentFrame].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+
+	return m_uiCommandBuffers[currentFrame];
+}
+
+void VulkanRenderer::endUiRendering(vk::CommandBuffer& uiCommandBuffer )
+{
+
+	uiCommandBuffer.endRenderPass();
+	uiCommandBuffer.end();
+}
+
+
+void VulkanRenderer::endFrame()
+{
+	m_device.resetFences(m_inFlightFences.at(currentFrame));
+	vk::PipelineStageFlags waitDestinationStageMask{vk::PipelineStageFlagBits::eColorAttachmentOutput};
+
+	vk::SubmitInfo submitInfo(m_imageAvailableSemaphores[currentFrame],
+								waitDestinationStageMask,
+								m_commandBuffers[currentFrame],
+								m_uiAvailableSemaphores[currentFrame]);
+
+	m_graphicsQueue.submit(submitInfo, m_inFlightFences[currentFrame]);
+
+	auto resultFence = m_device.waitForFences(m_inFlightFences.at(currentFrame), VK_TRUE, UINT64_MAX);
+	m_device.resetFences(m_inFlightFences.at(currentFrame));
+	vk::SubmitInfo uiSubmitInfo(m_uiAvailableSemaphores[currentFrame],
+								waitDestinationStageMask,
+								m_uiCommandBuffers[currentFrame],
+								m_renderFinishedSemaphores[currentFrame]);
+
+	m_graphicsQueue.submit(uiSubmitInfo, m_inFlightFences[currentFrame]);
+
+
+	vk::PresentInfoKHR presentInfo{m_renderFinishedSemaphores[currentFrame], m_swapChain, currentImageIndex};
+
+	try
+	{
+		currentFrameResult = m_presentQueue.presentKHR(presentInfo);
+	}
+	catch (std::exception const& exc)
+	{
+		std::cerr << exc.what();
+		//TODO - Fix
+		//recreateSwapChain();
+	}
+
+	if (currentFrameResult == vk::Result::eErrorOutOfDateKHR || currentFrameResult == vk::Result::eSuboptimalKHR || m_framebufferResized)
+	{
+		m_framebufferResized = false;
+		//TODO - Fix
+		//recreateSwapChain();
+	}
+	else if (currentFrameResult != vk::Result::eSuccess)
+	{
+		throw std::runtime_error("failed to present swap chain image!");
+	}
+
+	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+
 void VulkanRenderer::renderFrame(ImDrawData* imgui)
 {
     auto resultFence = m_device.waitForFences(m_inFlightFences.at(currentFrame), VK_TRUE, UINT64_MAX);
-		if (resultFence != vk::Result::eSuccess)
-		{
-			//std::cout << "syf" << std::endl;
-		}
+	if (resultFence != vk::Result::eSuccess)
+	{
+		//std::cout << "syf" << std::endl;
+	}
 
-		auto [result, imageIndex] = m_device.acquireNextImageKHR(m_swapChain, UINT64_MAX, m_imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE);
-
-
-		updateUniformBuffer(currentFrame);
+	auto [result, imageIndex] = m_device.acquireNextImageKHR(m_swapChain, UINT64_MAX, m_imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE);
 
 
-		m_device.resetFences(m_inFlightFences.at(currentFrame));
-
-		m_commandBuffers[currentFrame].reset(vk::CommandBufferResetFlags {});
-		recordCommandBuffer(m_commandBuffers[currentFrame], imageIndex, imgui);
-
-		vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-
-		vk::SubmitInfo submitInfo(m_imageAvailableSemaphores[currentFrame],
-								  waitDestinationStageMask,
-								  m_commandBuffers[currentFrame],
-								  m_renderFinishedSemaphores[currentFrame]);
+	updateUniformBuffer(currentFrame);
 
 
-		m_graphicsQueue.submit(submitInfo, m_inFlightFences[currentFrame]);
+	m_device.resetFences(m_inFlightFences.at(currentFrame));
+
+	m_commandBuffers[currentFrame].reset(vk::CommandBufferResetFlags {});
+	recordCommandBuffer(m_commandBuffers[currentFrame], imageIndex);
+
+	vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
+	vk::SubmitInfo submitInfo(m_imageAvailableSemaphores[currentFrame],
+								waitDestinationStageMask,
+								m_commandBuffers[currentFrame],
+								m_renderFinishedSemaphores[currentFrame]);
 
 
-		vk::PresentInfoKHR presentInfo(m_renderFinishedSemaphores[currentFrame], m_swapChain, imageIndex);
+	m_graphicsQueue.submit(submitInfo, m_inFlightFences[currentFrame]);
 
-		try
-		{
-			result = m_presentQueue.presentKHR(presentInfo);
-		}
-		catch (std::exception const& exc)
-		{
-			std::cerr << exc.what();
-			//TODO - Fix
-			//recreateSwapChain();
-		}
 
-		if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || m_framebufferResized)
-		{
-			m_framebufferResized = false;
-			//TODO - Fix
-			//recreateSwapChain();
-		}
-		else if (result != vk::Result::eSuccess)
-		{
-			throw std::runtime_error("failed to present swap chain image!");
-		}
+	vk::PresentInfoKHR presentInfo(m_renderFinishedSemaphores[currentFrame], m_swapChain, imageIndex);
 
-		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	try
+	{
+		result = m_presentQueue.presentKHR(presentInfo);
+	}
+	catch (std::exception const& exc)
+	{
+		std::cerr << exc.what();
+		//TODO - Fix
+		//recreateSwapChain();
+	}
+
+	if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || m_framebufferResized)
+	{
+		m_framebufferResized = false;
+		//TODO - Fix
+		//recreateSwapChain();
+	}
+	else if (result != vk::Result::eSuccess)
+	{
+		throw std::runtime_error("failed to present swap chain image!");
+	}
+
+	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 Renderer_API vk::CommandBuffer VulkanRenderer::beginSingleTimeCommands()
@@ -554,6 +653,7 @@ void VulkanRenderer::createSwapChain()
 
 	m_swapChain = m_device.createSwapchainKHR(createInfo);
 	m_swapChainImages = m_device.getSwapchainImagesKHR(m_swapChain);
+	m_uiSwapchainImages = m_device.getSwapchainImagesKHR(m_swapChain);
 	m_swapChainImageFormat = surfaceFormat.format;
 	m_swapChainExtent = extent;
 
@@ -623,6 +723,22 @@ void VulkanRenderer::createSwapchainImageViews()
 			vk::ImageSubresourceRange{vk::ImageAspectFlags{vk::ImageAspectFlagBits::eColor}, 0, 1, 0, 1}};
 
 		m_swapChainImageViews.emplace_back(m_device.createImageView(createInfo));
+	}
+
+	for (const auto &swapChainImage : m_uiSwapchainImages)
+	{
+		vk::ImageViewCreateInfo createInfo{
+			vk::ImageViewCreateFlags{},
+			swapChainImage,
+			vk::ImageViewType::e2D,
+			m_swapChainImageFormat,
+			vk::ComponentMapping{vk::ComponentSwizzle::eIdentity,
+								 vk::ComponentSwizzle::eIdentity,
+								 vk::ComponentSwizzle::eIdentity,
+								 vk::ComponentSwizzle::eIdentity},
+			vk::ImageSubresourceRange{vk::ImageAspectFlags{vk::ImageAspectFlagBits::eColor}, 0, 1, 0, 1}};
+
+		m_uiSwapchainImageViews.emplace_back(m_device.createImageView(createInfo));
 	}
 }
 
@@ -923,26 +1039,15 @@ void VulkanRenderer::createUiGraphicsPipeline()
 	m_uiDescriptorPool = m_device.createDescriptorPool(poolInfo);
 
 
-
 	vk::AttachmentDescription colorAttachment{vk::AttachmentDescriptionFlags{},
 											  m_swapChainImageFormat,
 											  vk::SampleCountFlagBits::e1,
-											  vk::AttachmentLoadOp::eClear,
+											  vk::AttachmentLoadOp::eDontCare,
 											  vk::AttachmentStoreOp::eStore,
 											  vk::AttachmentLoadOp::eDontCare,
 											  vk::AttachmentStoreOp::eDontCare,
 											  vk::ImageLayout::eUndefined,
 											  vk::ImageLayout::ePresentSrcKHR};
-
-	vk::AttachmentDescription depthAttachment{vk::AttachmentDescriptionFlags{},
-											  findDepthFormat(),
-											  vk::SampleCountFlagBits::e1,
-											  vk::AttachmentLoadOp::eClear,
-											  vk::AttachmentStoreOp::eDontCare,
-											  vk::AttachmentLoadOp::eDontCare,
-											  vk::AttachmentStoreOp::eDontCare,
-											  vk::ImageLayout::eUndefined,
-											  vk::ImageLayout::eDepthStencilAttachmentOptimal};
 
 
 	vk::AttachmentReference colorAttachmentRef{0, vk::ImageLayout::eColorAttachmentOptimal};
@@ -971,15 +1076,9 @@ void VulkanRenderer::createUiGraphicsPipeline()
         vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite // dstAccessMask
     );
 
-	vk::RenderPassCreateInfo renderPassInfo(
-        {},                               // flags
-        1,                                // attachmentCount
-        &colorAttachment,                 // pAttachments
-        1,                                // subpassCount
-        &subpass,                         // pSubpasses
-        1,                                // dependencyCount
-        &dependency                       // pDependencies
-    );
+	std::array<vk::AttachmentDescription, 1> attachments{colorAttachment};
+	vk::RenderPassCreateInfo renderPassInfo{{}, attachments, subpass, dependency};
+
 
 	m_uiRenderPass = m_device.createRenderPass(renderPassInfo);
 }
@@ -1011,6 +1110,22 @@ void VulkanRenderer::createFramebuffer()
 													1 };
 
 		m_swapchainFramebuffers.emplace_back(m_device.createFramebuffer(framebufferInfo));
+	}
+
+
+	m_uiSwapchainFramebuffers.reserve(m_uiSwapchainImageViews.size());
+	for (const auto& swapChainImageView : m_uiSwapchainImageViews)
+	{
+		std::array<vk::ImageView, 1> attachments { swapChainImageView};
+
+		vk::FramebufferCreateInfo framebufferInfo { vk::FramebufferCreateFlags {},
+													m_uiRenderPass,
+													attachments,
+													m_swapChainExtent.width,
+													m_swapChainExtent.height,
+													1 };
+
+		m_uiSwapchainFramebuffers.emplace_back(m_device.createFramebuffer(framebufferInfo));
 	}
 }
 
@@ -1095,22 +1210,30 @@ void VulkanRenderer::createIndexBuffer()
 
 void VulkanRenderer::createCommandBuffers()
 {
-	vk::CommandBufferAllocateInfo allocInfo { m_commandPool,
-												  vk::CommandBufferLevel::ePrimary,
-												  static_cast<uint32_t>(m_swapchainFramebuffers.size()) };
+	vk::CommandBufferAllocateInfo cmdAllocInfo { m_commandPool,
+												vk::CommandBufferLevel::ePrimary,
+												static_cast<uint32_t>(m_swapchainFramebuffers.size()) };
 
-	m_commandBuffers = m_device.allocateCommandBuffers(allocInfo);
+	vk::CommandBufferAllocateInfo uiCmdAllocInfo { m_commandPool,
+												vk::CommandBufferLevel::ePrimary,
+												static_cast<uint32_t>(m_uiSwapchainFramebuffers.size()) };
+
+	m_commandBuffers 	= m_device.allocateCommandBuffers(cmdAllocInfo);
+	m_uiCommandBuffers 	= m_device.allocateCommandBuffers(uiCmdAllocInfo);
+
 }
 
 void VulkanRenderer::createSyncObjects()
 {
 	m_imageAvailableSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
+	m_uiAvailableSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
 	m_renderFinishedSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
 	m_inFlightFences.reserve(MAX_FRAMES_IN_FLIGHT);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_imageAvailableSemaphores.emplace_back(m_device.createSemaphore(vk::SemaphoreCreateInfo {}));
+		m_uiAvailableSemaphores.emplace_back(m_device.createSemaphore(vk::SemaphoreCreateInfo {}));
 		m_renderFinishedSemaphores.emplace_back(m_device.createSemaphore(vk::SemaphoreCreateInfo {}));
 		m_inFlightFences.emplace_back(m_device.createFence(vk::FenceCreateInfo { vk::FenceCreateFlagBits::eSignaled }));
 	}
@@ -1135,14 +1258,9 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage)
 	void* data = m_device.mapMemory(m_uniformBuffersMemory.at(currentImage), 0, sizeof(ubo));
 	memcpy(data, &ubo, sizeof(ubo));
 	m_device.unmapMemory(m_uniformBuffersMemory.at(currentImage));
-
-
-	data = m_device.mapMemory(m_uniformBuffersMemory.at(currentImage), 0, sizeof(ubo));
-	memcpy(data, &ubo, sizeof(ubo));
-	m_device.unmapMemory(m_uniformBuffersMemory.at(currentImage));
 }
 
-void VulkanRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, uint32_t imageIndex, ImDrawData* imgui)
+void VulkanRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, uint32_t imageIndex)
 {
 	commandBuffer.begin(vk::CommandBufferBeginInfo {});
 
@@ -1189,14 +1307,6 @@ void VulkanRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, uint3
 
 	commandBuffer.drawIndexed(planeIndices.size(), 1, 0, 0, 0);
 	
-
-	vk::RenderPassBeginInfo renderPassInfo2 { m_uiRenderPass,
-												m_swapchainFramebuffers[imageIndex],
-												vk::Rect2D((0, 0), swapChainExtent),
-												clearValues };
-
-	commandBuffer.beginRenderPass(renderPassInfo2, vk::SubpassContents::eInline);
-	ImGui_ImplVulkan_RenderDrawData(imgui, m_commandBuffers[currentFrame]);
 
 	commandBuffer.endRenderPass();
 	commandBuffer.end();

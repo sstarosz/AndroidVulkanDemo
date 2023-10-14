@@ -227,9 +227,24 @@ int main() {
         ImGui::Render();
 
         //renderer->update
-        auto* test = ImGui::GetDrawData();
-        vulkanRenderer.renderFrame(test);
+        //auto* test = ImGui::GetDrawData();
+        //vulkanRenderer.renderFrame(test);
         //ImGui_ImplVulkan_RenderDrawData()
+
+        //renderer -> start frame
+        vulkanRenderer.startFrame();
+
+        auto commandBuffer = vulkanRenderer.beginUiRendering();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),commandBuffer);
+        vulkanRenderer.endUiRendering(commandBuffer);
+
+        vulkanRenderer.endFrame();
+
+        //renderer -> render ui
+
+
+        //renderer -> stop frame
+
 
         //ImGui::End();
     }

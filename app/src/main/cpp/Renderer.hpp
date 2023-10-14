@@ -72,6 +72,12 @@ public:
     Renderer_API void endSingleTimeCommands(vk::CommandBuffer commandBuffer);
 
 
+    Renderer_API void startFrame();
+    Renderer_API vk::CommandBuffer beginUiRendering();
+    Renderer_API void endUiRendering(vk::CommandBuffer& uiCommandBuffer );
+    Renderer_API void endFrame();
+
+
 
 private:
     void initVulkan();
@@ -115,7 +121,7 @@ private:
     void createSyncObjects();
 
     void updateUniformBuffer(uint32_t currentImage);
-    void recordCommandBuffer(vk::CommandBuffer& commandBuffer, uint32_t imageIndex, ImDrawData* imgui);
+    void recordCommandBuffer(vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
 
     void createBuffer(vk::DeviceSize size,
                       vk::BufferUsageFlags usage,
@@ -192,6 +198,8 @@ private:
     vk::CommandPool m_commandPool;
 
     std::vector<vk::Framebuffer> m_swapchainFramebuffers;
+    std::vector<vk::Framebuffer> m_uiSwapchainFramebuffers;
+
     vk::Image m_depthImage; 
     vk::DeviceMemory m_depthImageMemory;
     vk::ImageView m_depthImageView;
@@ -206,12 +214,18 @@ private:
 	vk::DeviceMemory m_planeIndexBufferMemory;
 
     std::vector<vk::CommandBuffer> m_commandBuffers;
+    std::vector<vk::CommandBuffer> m_uiCommandBuffers;
+
 
     std::vector<vk::Semaphore> m_imageAvailableSemaphores;
+    std::vector<vk::Semaphore> m_uiAvailableSemaphores;
     std::vector<vk::Semaphore> m_renderFinishedSemaphores;
     std::vector<vk::Fence> m_inFlightFences;
 
     uint32_t currentFrame = 0;
+    vk::Result currentFrameResult;
+    uint32_t currentImageIndex = 0;
+
 
     bool m_framebufferResized = false;
 
@@ -220,6 +234,8 @@ private:
     /*ImGui*/
     vk::DescriptorPool m_uiDescriptorPool;
     vk::RenderPass m_uiRenderPass;
+    std::vector<vk::Image> m_uiSwapchainImages;
+    std::vector<vk::ImageView> m_uiSwapchainImageViews;
 
 
 
