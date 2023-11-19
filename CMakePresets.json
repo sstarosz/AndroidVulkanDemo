@@ -1,31 +1,77 @@
 {
     "version": 5,
     "cmakeMinimumRequired": {
-      "major": 3,
-      "minor": 22,
-      "patch": 1
+        "major": 3,
+        "minor": 22,
+        "patch": 1
     },
     "configurePresets": [
         {
-            "name": "MSVC-2022-x64-Debug",
-            "displayName": "Visual Studio 2022 - amd64 - Debug",
-            "description": "Using compilers for Visual Studio 17 2022 (x64 architecture)",
-            "generator": "Ninja",
-            "toolset":{
-                "value": "v143,host=x64",
-                "strategy": "external"
-            },
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
+            "name": "Base",
+            "description": "Common settings for all configure presets",
+            "hidden": true,
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
+            "toolchainFile": "$env{VCPKG_PATH}/scripts/buildsystems/vcpkg.cmake"
+
+        },
+        {
+            "name": "AndoridBase",
+            "description": "Presets for building Andorid C++ Shared Library",
+            "hidden": true,
+            "inherits": "Base",
+            "generator": "Ninja",
+            "toolchainFile": "//TODO",
             "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_C_COMPILER": "cl.exe",
-                "CMAKE_CXX_COMPILER": "cl.exe",
-                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_PATH}/scripts/buildsystems/vcpkg.cmake"
+                "CMAKE_SYSTEM_NAME": "Android",
+                "ANDROID_ABI": "",
+                "CMAKE_SYSTEM_VERSION": "24",
+                "CMAKE_ANDROID_NDK": "$env{ANDROID_NDK_HOME}",
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake"
+            }
+        },
+        {
+            "name": "Windows-Base",
+            "description": "Presets for building application under MSVC 2022",
+            "hidden": true,
+            "inherits": "Base",
+            "generator": "Ninja",
+            "architecture": {
+              "value": "x64",
+              "strategy": "external"
+            },
+            "cacheVariables": {
+              "CMAKE_C_COMPILER": "cl",
+              "CMAKE_CXX_COMPILER": "cl"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS":"Windows",
+                    "intelliSenseMode": "windows-msvc-x64",
+                    "enableMicrosoftCodeAnalysis": true
+                }
+            }
+        },
+        {
+            "name": "MSVC-2022-x64-Debug",
+            "inherits": "Windows-Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "MSVC-2022-x64-Release",
+            "inherits": "Windows-Base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "Andorid-armeabi-v7a-Debug",
+            "inherits": "AndoridBase",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_ANDROID_ARCH_ABI": "armeabi-v7a"
             }
         }
     ],
@@ -35,6 +81,12 @@
             "displayName": "Visual Studio 2022 - amd64 - Debug - Build",
             "configurePreset": "MSVC-2022-x64-Debug",
             "configuration": "Debug"
+        },
+        {
+            "name": "MSVC-2022-x64-Release-Build",
+            "displayName": "Visual Studio 2022 - amd64 - Release - Build",
+            "configurePreset": "MSVC-2022-x64-Release",
+            "configuration": "RelWithDebInfo"
         }
     ]
 }
