@@ -10,24 +10,21 @@
             "name": "Base",
             "description": "Common settings for all configure presets",
             "hidden": true,
+            "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "installDir": "${sourceDir}/out/install/${presetName}",
             "toolchainFile": "$env{VCPKG_PATH}/scripts/buildsystems/vcpkg.cmake"
 
         },
         {
-            "name": "AndoridBase",
-            "description": "Presets for building Andorid C++ Shared Library",
+            "name": "AndroidBase",
+            "description": "Presets for building Android C++ Shared Library",
             "hidden": true,
             "inherits": "Base",
-            "generator": "Ninja",
-            "toolchainFile": "//TODO",
             "cacheVariables": {
                 "CMAKE_SYSTEM_NAME": "Android",
-                "ANDROID_ABI": "",
                 "CMAKE_SYSTEM_VERSION": "24",
-                "CMAKE_ANDROID_NDK": "$env{ANDROID_NDK_HOME}",
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake"
+                "CMAKE_ANDROID_NDK": "$env{ANDROID_NDK_HOME}"
             }
         },
         {
@@ -67,11 +64,67 @@
             }
         },
         {
-            "name": "Andorid-armeabi-v7a-Debug",
-            "inherits": "AndoridBase",
+            "name": "Android-armeabi-v7a-Debug",
+            "inherits": "AndroidBase",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_ANDROID_ARCH_ABI": "armeabi-v7a"
+            }
+        },
+        {
+            "name": "Android-arm64-v8a-Debug",
+            "inherits": "AndroidBase",
+            "cacheVariables": {
+                "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Android-x86-Debug",
+            "inherits": "AndroidBase",
+            "cacheVariables": {
+                "CMAKE_ANDROID_ARCH_ABI": "x86",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Android-x86_64-Debug",
+            "inherits": "AndroidBase",
+            "cacheVariables": {
+                "CMAKE_ANDROID_ARCH_ABI": "x86_64",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Android-armeabi-v7a-Release",
+            "inherits": "AndroidBase",
+            "cacheVariables": {
+                "CMAKE_ANDROID_ARCH_ABI": "armeabi-v7a",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "Android-arm64-v8a-Release",
+            "inherits": "AndroidBase",
+            "cacheVariables": {
+                "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "Android-x86-Release",
+            "inherits": "AndroidBase",
+            "cacheVariables": {
+                "CMAKE_ANDROID_ARCH_ABI": "x86",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "Android-x86_64-Release",
+            "inherits": "AndroidBase",
+            "cacheVariables": {
+                "CMAKE_ANDROID_ARCH_ABI": "x86_64",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
             }
         }
     ],
@@ -87,6 +140,54 @@
             "displayName": "Visual Studio 2022 - amd64 - Release - Build",
             "configurePreset": "MSVC-2022-x64-Release",
             "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "Android-armeabi-v7a-Debug-Build",
+            "displayName": "Android - armeabi-v7a - Debug - Build",
+            "configurePreset": "Android-armeabi-v7a-Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "Android-arm64-v8a-Debug-Build",
+            "displayName": "Android - arm64-v8a - Debug - Build",
+            "configurePreset": "Android-arm64-v8a-Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "Android-x86-Debug-Build",
+            "displayName": "Android - x86 - Debug - Build",
+            "configurePreset": "Android-x86-Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "Android-x86_64-Debug-Build",
+            "displayName": "Android - x86_64 - Debug - Build",
+            "configurePreset": "Android-x86_64-Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "Android-armeabi-v7a-Release-Build",
+            "displayName": "Android - armeabi-v7a - Release - Build",
+            "configurePreset": "Android-armeabi-v7a-Release",
+            "configuration": "Release"
+        },
+        {
+            "name": "Android-arm64-v8a-Release-Build",
+            "displayName": "Android - arm64-v8a - Release - Build",
+            "configurePreset": "Android-arm64-v8a-Release",
+            "configuration": "Release"
+        },
+        {
+            "name": "Android-x86-Release-Build",
+            "displayName": "Android - x86 - Release - Build",
+            "configurePreset": "Android-x86-Release",
+            "configuration": "Release"
+        },
+        {
+            "name": "Android-x86_64-Release-Build",
+            "displayName": "Android - x86_64 - Release - Build",
+            "configurePreset": "Android-x86_64-Release",
+            "configuration": "Release"
         }
     ]
 }

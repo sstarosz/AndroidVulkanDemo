@@ -3,14 +3,14 @@
     "name": "android-vulkan-demo",
     "version": "0.0.1",
     "dependencies": [
-      "glfw3",
       "stb",
       {
         "name": "imgui",
         "features": [
             "glfw-binding",
             "vulkan-binding"
-        ]
+        ],
+        "platform": "windows"
       }
     ]
   }
